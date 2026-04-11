@@ -1,0 +1,24 @@
+{
+  "data_columns": [
+    {
+      "name": "nombre",
+      "type": "string",
+      "comment": "Nombre de la persona"
+    },
+    {
+      "name": "parentesco",
+      "type": "string",
+      "comment": "Parentesco compartido con un cierto número de familiares"
+    },
+    {
+      "name": "numero",
+      "type": "int",
+      "comment": "Número de familiares con ese parentesco"
+    },
+    {
+      "name": "profesion",
+      "type": "string",
+      "comment": "Profesión de la persona"
+    }
+  ]
+}

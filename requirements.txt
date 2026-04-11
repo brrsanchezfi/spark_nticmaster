@@ -1,0 +1,14 @@
+
+pytest==8.3.4
+loguru==0.7.1
+
+# DESCOMENTA LAS SIGUIENTES DEPENDENCIAS SI VAS A USAR EL PAQUETE DATABRICKS-CONNECT, Y ELIMINA LA DEPENDENCIA PYSPARK
+# databricks-connect==15.4.4
+# grpcio==1.59.3        # necesarias por incompatibilidad de databricks-connect con la versión más reciente de grpcio
+# grpcio-status==1.59.3
+
+# el paquete pyspark no es necesario para ejecutar en un cluster de Databricks, y debe ser ELIMINADO si vas a instalar databricks-connect
+pyspark==3.5.0
+
+# el paquete pandas no es necesario para ejecutar en Databricks porque ya viene instalado
+pandas==2.2.1

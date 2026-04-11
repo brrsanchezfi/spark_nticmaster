@@ -1,0 +1,100 @@
+{
+  "data_columns": [
+    {
+      "name": "FlightDate",
+      "type": "date",
+      "format": "yyyy-MM-dd",
+      "comment": "Flight date"
+    },
+    {
+      "name": "Reporting_Airline",
+      "type": "string",
+      "comment": "Unique Carrier Code. When the same code has been used by multiple carriers, a numeric suffix is used for earlier users, for example, PA, PA(1), PA(2). Use this field for analysis across a range of years."
+    },
+    {
+      "name": "OriginAirportID",
+      "type": "int",
+      "comment": "Origin Airport, Airport ID. An identification number assigned by US DOT to identify a unique airport.  Use this field for airport analysis across a range of years because an airport can change its airport code and airport codes can be reused."
+    },
+    {
+      "name": "Origin",
+      "type": "string",
+      "comment": "Origin Airport IATA code (3 letters)"
+    },
+    {
+      "name": "OriginCityName",
+      "type": "string",
+      "comment": "Origin Airport, City Name"
+    },
+    {
+      "name": "OriginState",
+      "type": "string",
+      "comment": "Origin Airport, State Code"
+    },
+    {
+      "name": "DestAirportID",
+      "type": "int",
+      "comment": "Destination Airport, Airport ID. An identification number assigned by US DOT to identify a unique airport.  Use this field for airport analysis across a range of years because an airport can change its airport code and airport codes can be reused."
+    },
+    {
+      "name": "Dest",
+      "type": "string",
+      "comment": "Destination Airport IATA code (3 letters)"
+    },
+    {
+      "name": "DestCityName",
+      "type": "string",
+      "comment": "Destination Airport, City Name"
+    },
+    {
+      "name": "DestState",
+      "type": "string",
+      "comment": "Destination Airport, State Code"
+    },
+    {
+      "name": "DepDelay",
+      "type": "int",
+      "comment": "Difference in minutes between scheduled and actual departure time. Early departures show negative numbers."
+    },
+    {
+      "name": "DepTime",
+      "type": "int",
+      "comment": "Actual Departure Time (local time: hhmm), as a four-digit integer"
+    },
+    {
+      "name": "ArrDelay",
+      "type": "int",
+      "comment": "Difference in minutes between scheduled and actual arrival time. Early arrivals show negative numbers."
+    },
+    {
+      "name": "ArrTime",
+      "type": "int",
+      "comment": "Actual Arrival Time (local time: hhmm), as a four-digit integer"
+    },
+    {
+      "name": "Cancelled",
+      "type": "boolean",
+      "comment": "Cancelled Flight Indicator (1=Yes)"
+    },
+    {
+      "name": "Diverted",
+      "type": "boolean",
+      "comment": "Diverted Flight Indicator (1=Yes)"
+    },
+    {
+      "name": "AirTime",
+      "type": "int",
+      "comment": "Flight Time, in Minutes"
+    },
+    {
+      "name": "Distance",
+      "type": "int",
+      "comment": "Distance between airports (miles)"
+    }
+  ],
+
+  "output_table": "default.flights",
+  "output_partitions": 10,
+  "EXECUTION_ENVIRONMENT": "databricks",
+  "CLUSTER_ID": "0405-181044-j4dmpswy"
+}
