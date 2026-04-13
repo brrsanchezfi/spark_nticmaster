@@ -1,45 +1,74 @@
-
 import json
 from pyspark.sql import DataFrame as DF, functions as F, SparkSession
 
 
 class MotorIngesta:
     """
-    Completar docstring
+    Motor de ingesta de ficheros JSON hacia DataFrames de Spark.
+
+    Lee un fichero JSON desde DBFS o ruta local, lo aplana recursivamente
+    (explotando arrays y desanidando structs) y selecciona únicamente las
+    columnas declaradas en la configuración, casteándolas al tipo indicado
+    e incluyendo comentarios como metadatos de columna.
+
+    Atributos:
+        config (dict): Diccionario de configuración con al menos la clave
+                       'data_columns', lista de dicts con las claves
+                       'name', 'type' y 'comment'.
+        spark (SparkSession): SparkSession activa.
     """
+
     def __init__(self, config: dict):
         """
-        Completar docstring
-        :param config_file:
+        Inicializa el motor con la configuración proporcionada y obtiene
+        (o crea) la SparkSession activa.
+
+        :param config: Diccionario de configuración. Debe incluir la clave
+                       'data_columns' con una lista de diccionarios, cada uno
+                       con los campos:
+                           - 'name'    (str)  : nombre de la columna en el DF aplanado.
+                           - 'type'    (str)  : tipo Spark al que castear (p.ej. 'string',
+                                                'double', 'integer', 'date', …).
+                           - 'comment' (str)  : descripción de la columna que se almacena
+                                                como metadato.
         """
         self.config = config
         self.spark = SparkSession.builder.getOrCreate()
 
     def ingesta_fichero(self, json_path: str) -> DF:
         """
-        Completar docstring
-        :param json_path:
-        :return:
+        Lee un fichero JSON, aplana su estructura anidada y devuelve un
+        DataFrame con las columnas tipadas definidas en la configuración.
+
+        El proceso es:
+          1. Lectura del JSON con inferencia de esquema y soporte multilínea.
+          2. Aplanado recursivo mediante :meth:`aplana_df` (explota arrays y
+             desanida structs a cualquier nivel de profundidad).
+          3. Selección y casteo de las columnas declaradas en
+             ``self.config["data_columns"]``, añadiendo el campo 'comment'
+             como metadato de cada columna.
+
+        :param json_path: Ruta al fichero JSON (local o DBFS),
+                          p.ej. ``"/dbfs/mnt/raw/flights/2023-01-01.json"``.
+        :return: DataFrame de Spark con las columnas seleccionadas, casteadas
+                 y anotadas con metadatos.
         """
-        # Leemos el JSON como DF, tratando de inferir el esquema, y luego lo aplanamos.
-        # Por último nos quedamos con las columnas indicadas en el fichero de configuración,
-        # en la propiedad self.config["data_columns"], que es una lista de diccionarios. Debemos recorrer
-        # esa lista, seleccionando la columna y convirtiendo cada columna al tipo indicado en el fichero.
+        # 1. Lectura del JSON inferiendo el esquema
+        flights_day_df = self.spark.read.option("multiline", "true").json(json_path)
 
-        # PISTA: crear en lista_obj_column una lista de objetos Column como lista por comprensión a partir
-        # de self.config["data_columns"], y luego usar dicha lista como argumento de select(...). El DF resultante
-        # debe ser devuelto como resultado de la función.
+        # 2. Aplanado recursivo (explota arrays, desanida structs)
+        aplanado_df = MotorIngesta.aplana_df(flights_day_df)
 
-        # Para incluir también el campo "comment" como metadatos de la columna, podemos hacer:
-        # F.col(...).cast(...).alias(..., metadata={"comment": ...})
+        # 3. Selección con casteo y metadatos
+        lista_obj_column = [
+            F.col(diccionario["name"])
+             .cast(diccionario["type"])
+             .alias(diccionario["name"], metadata={"comment": diccionario["comment"]})
+            for diccionario in self.config["data_columns"]
+        ]
 
-        flights_day_df = spark.read....
-
-        aplanado_df = ...
-        lista_obj_column = [ ... for diccionario in self.config["data_columns"] ]
-        resultado_df = aplanado_df.select(...)
-        return ...
-
+        resultado_df = aplanado_df.select(*lista_obj_column)
+        return resultado_df
 
     @staticmethod
     def aplana_df(df: DF) -> DF:

@@ -4,3 +4,9 @@
 
 venv/
 .venv-test/
+.venv-linux/
+
+data/
+dist/
+
+*egg-info/

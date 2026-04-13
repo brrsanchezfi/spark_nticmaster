@@ -94,7 +94,8 @@
   ],
 
   "output_table": "default.flights",
-  "output_partitions": 10,
-  "EXECUTION_ENVIRONMENT": "databricks",
+  "output_path": "/tmp/spark-warehouse/flights",
+  "output_partitions": 1,
+  "EXECUTION_ENVIRONMENT": "local",
   "CLUSTER_ID": "0405-181044-j4dmpswy"
 }
