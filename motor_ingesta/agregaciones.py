@@ -36,53 +36,40 @@ def aniade_hora_utc(spark: SparkSession, df: DF) -> DF:
         how="left"
     )
 
-    # Pasos 2a-2c: castedHour → FlightTime local → FlightTime UTC
+    # Pasos 2a-2c: castedHour -> FlightTime local -> FlightTime UTC
     df_with_flight_time = (
         df_with_tz
-        # (a) padding a 4 dígitos — null si DepTime es null
         .withColumn(
             "castedHour",
             F.when(F.col("DepTime").isNull(), F.lit(None).cast("string"))
             .otherwise(F.lpad(F.col("DepTime").cast("string"), 4, "0"))
         )
-
-        # Tratar el caso especial 2400 → 0000 del día siguiente
-        .withColumn(
-            "fecha_ajustada",
-            F.when(F.col("castedHour") == "2400",
-                F.date_add(F.col("FlightDate").cast("date"), 1))
-            .otherwise(F.col("FlightDate").cast("date"))
-        )
-        .withColumn(
-            "castedHour",
-            F.when(F.col("castedHour") == "2400", F.lit("0000"))
-            .otherwise(F.col("castedHour"))
-        )
-
-        # (b) FlightTime — será null si castedHour es null
         .withColumn(
             "FlightTime",
             F.when(
-                F.col("castedHour").isNull(), F.lit(None).cast("timestamp")
+                F.col("castedHour").isNull(),
+                F.lit(None).cast("timestamp")
             ).otherwise(
-                F.concat(
-                    F.col("fecha_ajustada").cast("string"),
-                    F.lit(" "),
-                    F.col("castedHour").substr(1, 2),
-                    F.lit(":"),
-                    F.col("castedHour").substr(3, 2),
-                    F.lit(":00"),
-                ).cast("timestamp")
+                F.expr("""
+                    try_cast(
+                        concat(
+                            cast(FlightDate as string),
+                            ' ',
+                            substr(castedHour, 1, 2),
+                            ':',
+                            substr(castedHour, 3, 2),
+                            ':00'
+                        ) as timestamp
+                    )
+                """)
             )
         )
-
-        # (c) convertir a UTC — to_utc_timestamp devuelve null si FlightTime es null
-        .withColumn("FlightTime", F.to_utc_timestamp(F.col("FlightTime"), F.col("iana_tz")))
-
-        # (d) borrar columnas auxiliares
-        .drop(*cols_timezones, "castedHour", "fecha_ajustada")
+        .withColumn(
+            "FlightTime",
+            F.to_utc_timestamp(F.col("FlightTime"), F.col("iana_tz"))
+        )
+        .drop(*timezones_df.columns, "castedHour")
     )
-    
     return df_with_flight_time
 
 

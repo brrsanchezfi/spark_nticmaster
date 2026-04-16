@@ -18,22 +18,34 @@ class MotorIngesta:
         spark (SparkSession): SparkSession activa.
     """
 
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, spark=None):
         """
         Inicializa el motor con la configuración proporcionada y obtiene
         (o crea) la SparkSession activa.
 
+        Si se proporciona una SparkSession existente, la reutiliza (patrón de
+        inyección de dependencias). Esto es especialmente útil cuando se usa
+        junto con DatabricksSession o cuando se quiere compartir la misma
+        sesión entre varios componentes. Si no se proporciona, obtiene o crea
+        una SparkSession local.
+
         :param config: Diccionario de configuración. Debe incluir la clave
-                       'data_columns' con una lista de diccionarios, cada uno
-                       con los campos:
-                           - 'name'    (str)  : nombre de la columna en el DF aplanado.
-                           - 'type'    (str)  : tipo Spark al que castear (p.ej. 'string',
+                    'data_columns' con una lista de diccionarios, cada uno
+                    con los campos:
+                        - 'name'    (str)  : nombre de la columna en el DF aplanado.
+                        - 'type'    (str)  : tipo Spark al que castear (p.ej. 'string',
                                                 'double', 'integer', 'date', …).
-                           - 'comment' (str)  : descripción de la columna que se almacena
+                        - 'comment' (str)  : descripción de la columna que se almacena
                                                 como metadato.
+        :param spark: SparkSession activa a reutilizar. Si es None, se obtiene
+                    o crea una nueva SparkSession local. Por defecto None.
         """
         self.config = config
-        self.spark = SparkSession.builder.getOrCreate()
+        if spark is not None:
+            self.spark = spark
+        else:
+            from pyspark.sql import SparkSession
+            self.spark = SparkSession.builder.getOrCreate()
 
     def ingesta_fichero(self, json_path: str) -> DF:
         """

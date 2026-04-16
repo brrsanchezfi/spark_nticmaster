@@ -62,36 +62,58 @@ class FlujoDiario:
         """
         try:
             # ── Ingesta ──────────────────────────────────────────────────────────
-            motor_ingesta = MotorIngesta(self.config)
+            motor_ingesta = MotorIngesta(self.config, self.spark)
             flights_df = motor_ingesta.ingesta_fichero(data_file).cache()
             flights_df = flights_df.repartition(self.config["output_partitions"])
 
             # ── Paso 1: hora de salida UTC ────────────────────────────────────────
             flights_with_utc = aniade_hora_utc(self.spark ,flights_df)
 
-            # flights_with_utc.show()
+            # ── Crear tabla si no existe (solo si ya hay datos) ──────────────────
+            logger.info(f"Verificando existencia de tabla {self.config['output_table']}...")
+            try:
+                self.spark.sql(f"""
+                    CREATE TABLE IF NOT EXISTS {self.config["output_table"]}
+                    USING parquet
+                """)
+                logger.info(f"Tabla {self.config['output_table']} lista")
+            except Exception as e:
+                logger.info(f"Tabla aún no existe, será creada en la escritura: {str(e)}")
 
             # ─────────────────────────────────────────────────────────────────────
             #  CÓDIGO PARA EL EJERCICIO 4
             # ─────────────────────────────────────────────────────────────────────
+            tabla = self.config["output_table"]
+
             dia_actual = flights_df.first().FlightDate
             dia_previo = dia_actual - timedelta(days=1)
-            try:
 
-                flights_previo = (
-                    self.spark.read
-                        .table(self.config["output_table"])
-                        .where(F.col("FlightDate") == dia_previo)
+            # Verificar si la tabla existe
+            if self.spark.catalog.tableExists(tabla):
+                try:
+                    flights_previo = (
+                        self.spark.read
+                            .table(tabla)
+                            .where(F.col("FlightDate") == dia_previo)
                     )
 
-                logger.info(f"Leída partición del día {dia_previo} con éxito")
-            except Exception as e:
-                logger.info(f"No se han podido leer datos del día {dia_previo}: {str(e)}")
+                    # Opcional: comprobar si realmente hay datos
+                    if flights_previo.limit(1).count() == 0:
+                        logger.info(f"No hay datos para el día {dia_previo}")
+                        flights_previo = None
+                    else:
+                        logger.info(f"Leída partición del día {dia_previo} con éxito")
+
+                except Exception as e:
+                    logger.warning(f"Error leyendo datos del día previo: {str(e)}")
+                    flights_previo = None
+            else:
+                logger.info(f"La tabla {tabla} no existe todavía (primer día de ejecución)")
                 flights_previo = None
 
-            if flights_previo:
-                # Añadimos a flights_with_utc las columnas que le faltan respecto al
-                # DF del día previo, con valor nulo casteado al tipo correcto.
+
+            # Uso correcto del DataFrame
+            if flights_previo is not None:
                 columnas_previo = flights_previo.columns
                 columnas_utc    = flights_with_utc.columns
 
@@ -103,12 +125,11 @@ class FlujoDiario:
                             col_name, F.lit(None).cast(dtype)
                         )
 
-                # Igualamos el orden de columnas al del día previo antes de la unión
                 df_unido = flights_previo.union(
                     flights_with_utc_aligned.select(columnas_previo)
                 )
 
-                # Spark no permite escribir en la misma tabla de la que leemos
+                # Evitar conflicto lectura/escritura
                 df_unido.write.mode("overwrite").saveAsTable("tabla_provisional")
                 df_unido = self.spark.read.table("tabla_provisional")
 
@@ -120,18 +141,6 @@ class FlujoDiario:
 
             # ── Paso 4: escritura en tabla externa ────────────────────────────────
 
-            # Crear la tabla si no existe (primera ejecución)
-            logger.info(f"Verificando existencia de tabla {self.config['output_table']}...")
-            self.spark.sql(f"""
-                CREATE TABLE IF NOT EXISTS {self.config["output_table"]}
-                USING parquet
-                LOCATION '{self.config["output_path"]}'
-            """)
-            logger.info(f"Tabla {self.config['output_table']} lista en {self.config['output_path']}")
-
-            self.spark.sql(f"MSCK REPAIR TABLE {self.config['output_table']}")
-            logger.info(f"Particiones sincronizadas en {self.config['output_table']}")
-
             # Escritura
             logger.info(f"Escribiendo datos en {self.config['output_table']}...")
             (df_with_next_flight
@@ -139,16 +148,15 @@ class FlujoDiario:
                 .write
                 .mode("overwrite")
                 .option("partitionOverwriteMode", "dynamic")
-                .option("path", self.config["output_path"])
+                # .option("path", self.config["output_path"])
                 .partitionBy("FlightDate")
                 .saveAsTable(self.config["output_table"]))
             logger.info(f"Datos escritos correctamente en {self.config['output_table']}")
 
-            # Sincronizar particiones nuevas
-            self.spark.sql(f"MSCK REPAIR TABLE {self.config['output_table']}")
-            logger.info(f"Particiones actualizadas en {self.config['output_table']}")
-
-            self.spark.sql("DROP TABLE IF EXISTS tabla_provisional")
+            try:
+                self.spark.sql("DROP TABLE IF EXISTS tabla_provisional")
+            except Exception as e:
+                logger.warning(f"No se pudo borrar tabla_provisional: {str(e)}")
 
             # df_with_next_flight.show()
 
